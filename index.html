@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DecentralVote</title>
+</head>
+<body>
+    <h1>DecentralVote</h1>
+    <h2>Candidates</h2>
+    <ul id="candidates"></ul>
+    <h2>Vote</h2>
+    <form id="voteForm">
+        <label for="candidateId">Candidate ID:</label>
+        <input type="number" id="candidateId" name="candidateId" required>
+        <button type="submit">Vote</button>
+    </form>
+    <script src="https://cdn.jsdelivr.net/npm/ethers@5.5.2/dist/ethers.min.js"></script>
+    <script>
+        // Connect to the Ethereum network
+        const provider = new ethers.providers.Web3Provider(window.ethereum, "any");
+
+        // Prompt user for account connections
+        provider.send("eth_requestAccounts", []).then(() => {
+            provider.listAccounts().then((accounts) => {
+                const signer = provider.getSigner(accounts[0]);
+                const contractAddress = 'YOUR_CONTRACT_ADDRESS';
+                const abi = [
+                    "event votedEvent(uint indexed candidateId)",
+                    "function candidates(uint) view returns (uint, string memory, uint)",
+                    "function candidatesCount() view returns (uint)",
+                    "function vote(uint) public"
+                ];
+                const contract = new ethers.Contract(contractAddress, abi, signer);
+
+                // Fetch candidates and display them
+                async function fetchCandidates() {
+                    const candidatesCount = await contract.candidatesCount();
+                    const candidatesList = document.getElementById("candidates");
+                    candidatesList.innerHTML = '';
+                    for (let i = 1; i <= candidatesCount; i++) {
+                        const candidate = await contract.candidates(i);
+                        const li = document.createElement("li");
+                        li.textContent = `ID: ${candidate[0]}, Name: ${candidate[1]}, Votes: ${candidate[2]}`;
+                        candidatesList.appendChild(li);
+                    }
+                }
+
+                // Handle voting
+                document.getElementById("voteForm").addEventListener("submit", async (event) => {
+                    event.preventDefault();
+                    const candidateId = document.getElementById("candidateId").value;
+                    try {
+                        const tx = await contract.vote(candidateId);
+                        await tx.wait();
+                        alert("Vote cast successfully!");
+                        fetchCandidates();
+                    } catch (error) {
+                        console.error(error);
+                        alert("Error casting vote. Please try again.");
+                    }
+                });
+
+                fetchCandidates();
+            });
+        });
+    </script>
+</body>
+</html>
